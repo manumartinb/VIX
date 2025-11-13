@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 r"""
-V15 Calendar Forward Factor Scanner - Escanea calendarios SPX y calcula Forward Factor
+V15 Calendar Forward Factor Scanner - Escanea calendarios VIX y calcula Forward Factor
 
 OBJETIVO: Escanea TODOS los calendarios posibles (CALLs y PUTs) en archivos 30MIN, calcula FF (backwardation/contango)
 
@@ -77,7 +77,7 @@ MAX_SPREAD_REL = 9999  # Spread bid-ask máximo relativo permitido (0.5 = 50% de
                       # EJEMPLO: Si mid=10, bid=7, ask=13, spread=6, spread_rel=60% → RECHAZA
 
 # ================== FUNCIONES AUXILIARES ==================
-BASE_URL_OS = "https://optionstrat.com/build/custom/SPX/"
+BASE_URL_OS = "https://optionstrat.com/build/custom/VIX/"
 
 def safe_filename(text: str) -> str:
     return re.sub(r'[\\/:*?"<>|]+', '-', text)
@@ -89,15 +89,15 @@ def is_third_friday(d):
     return len(fridays)>=3 and d.day==fridays[2]
 
 def root_for_exp(exp_str):
-    """Determina si una expiración es SPX o SPXW"""
+    """Determina si una expiración es VIX o VIX1 (weekly)"""
     d = datetime.strptime(exp_str, "%Y-%m-%d").date()
-    if d.weekday()==4 and is_third_friday(d):
-        return "SPX"
-    if d.weekday()==3:
-        nd = d + timedelta(days=1)
-        if nd.weekday()==4 and is_third_friday(nd):
-            return "SPX"
-    return "SPXW"
+    # VIX mensuales expiran el miércoles antes del tercer viernes
+    if d.weekday()==2:  # Miércoles
+        # Verificar si el viernes siguiente es el tercer viernes
+        next_friday = d + timedelta(days=2)
+        if next_friday.weekday()==4 and is_third_friday(next_friday):
+            return "VIX"
+    return "VIX1"
 
 def yyyymmdd_to_yymmdd(d):
     """Convierte fecha a formato YYMMDD para URL"""
@@ -118,7 +118,7 @@ def make_url_optionstrat(right, exp1, k1, exp2, k2):
         str: URL de Optionstrat
 
     Ejemplo:
-        https://optionstrat.com/build/custom/SPX/.SPXW240315C4800x-1,.SPXW240415C4800x1
+        https://optionstrat.com/build/custom/VIX/.VIX1240315C4800x-1,.VIX1240415C4800x1
     """
     # Convertir expiraciones a datetime
     date1 = datetime.strptime(exp1, "%Y-%m-%d")
@@ -162,14 +162,14 @@ def make_url_optionstrat_with_roots(right, exp1, k1, exp2, k2, root1, root2):
         k1: Strike front leg
         exp2: Expiración back leg (formato "YYYY-MM-DD")
         k2: Strike back leg
-        root1: Root symbol del front leg (SPX/SPXW)
-        root2: Root symbol del back leg (SPX/SPXW)
+        root1: Root symbol del front leg (VIX/VIX1)
+        root2: Root symbol del back leg (VIX/VIX1)
 
     Returns:
         str: URL de Optionstrat
 
     Ejemplo:
-        https://optionstrat.com/build/custom/SPX/.SPXW240315C4800x-1,.SPXW240415C4800x1
+        https://optionstrat.com/build/custom/VIX/.VIX1240315C4800x-1,.VIX1240415C4800x1
     """
     # Convertir expiraciones a datetime
     date1 = datetime.strptime(exp1, "%Y-%m-%d")
@@ -319,7 +319,7 @@ def find_nearest_snapshot(df_file, target_times_hhmm, ignore_target_minute=False
 
 def filter_df_by_root(df_sub, desired_root):
     """
-    Filtra DataFrame por root symbol (SPX/SPXW).
+    Filtra DataFrame por root symbol (VIX/VIX1).
 
     IMPORTANTE: Esta función es PERMISIVA. Si la columna root no existe o tiene valores
     vacíos/NULL, NO descarta las filas. Solo filtra cuando hay valores explícitos que
@@ -1041,7 +1041,7 @@ def main():
 
     # Guardar CSV
     ts_batch = datetime.now(TZ_ES).strftime("%Y%m%d_%H%M%S")
-    output_name = f"SPX_Calendar_ForwardFactor_Scan_{ts_batch}.csv"
+    output_name = f"VIX_Calendar_ForwardFactor_Scan_{ts_batch}.csv"
     output_path = DESKTOP / safe_filename(output_name)
 
     df_output.to_csv(output_path, index=False, encoding='utf-8-sig')
@@ -1147,7 +1147,7 @@ def main():
                 df_no_lose_output = df_no_lose_output[cols_ordered_no_lose + cols_remaining_no_lose]
 
             # Guardar CSV "No lose"
-            output_name_no_lose = f"SPX_Calendar_ForwardFactor_Scan_{ts_batch}_NO_LOSE.csv"
+            output_name_no_lose = f"VIX_Calendar_ForwardFactor_Scan_{ts_batch}_NO_LOSE.csv"
             output_path_no_lose = DESKTOP / safe_filename(output_name_no_lose)
 
             df_no_lose_output.to_csv(output_path_no_lose, index=False, encoding='utf-8-sig')
